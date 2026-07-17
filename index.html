@@ -2988,12 +2988,11 @@ function preencherProva(){
   if(!pvId) return;
   const pv = D.gp.find(p=>p.id===pvId);
   if(!pv) return;
-  // Preenche o motivo automaticamente
   document.getElementById('pt-m').value = pv.nome;
-  // Preenche o dia
   document.getElementById('pt-d').value = pv.dia||'dia1';
-  // Se for por acerto, não preenche pontos (usuário digita acertos)
-  // Se for por colocação, não sabe ainda quem ficou em qual lugar
+  // Preencher pontos com o valor configurado na prova
+  const ptEl = document.getElementById('pt-p');
+  if(ptEl) ptEl.value = pv.pontos_1||20;
 }
 
 async function svPontos(){
