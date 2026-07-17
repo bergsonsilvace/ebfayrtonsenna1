@@ -495,7 +495,8 @@ html,body{height:100%;font-family:'Outfit',sans-serif;background:var(--bg);color
       <div class="sb-sec">Principal</div>
       <button class="ni on" data-p="dashboard"       onclick="go('dashboard')">      <span class="ico">📊</span>Dashboard</button>
       <button class="ni" data-p="criancas"           onclick="go('criancas')">       <span class="ico">👦</span>Crianças<span class="nb" id="nb-c">0</span></button>
-            <button class="ni" data-p="sorteio"            onclick="go('sorteio')">        <span class="ico">🎲</span>Sorteio</button>
+            <button class="ni" data-p="visitantes"           onclick="go('visitantes')">       <span class="ico">👥</span>Visitantes</button>
+      <button class="ni" data-p="sorteio"            onclick="go('sorteio')">        <span class="ico">🎲</span>Sorteio</button>
       <button class="ni" data-p="credenciamento"     onclick="go('credenciamento')"> <span class="ico">🎫</span>Credenciamento</button>
       <button class="ni" data-p="inscricoes"         onclick="go('inscricoes')">     <span class="ico">📝</span>Inscrições<span class="nb" id="nb-i">0</span></button>
       <div class="sb-sec">Evento</div>
@@ -1190,6 +1191,46 @@ html,body{height:100%;font-family:'Outfit',sans-serif;background:var(--bg);color
   </div>
 </div>
 
+<!-- Modal Visitante -->
+<div class="mw" id="m-vis"><div class="modal">
+  <div class="mh"><h3 id="m-vis-t">Novo Visitante</h3><button class="mc" onclick="closeM('m-vis')">✕</button></div>
+  <div class="mb">
+    <input type="hidden" id="vis-id">
+    <div class="f"><label>Nome completo *</label><input id="vis-nome" placeholder="Nome completo"></div>
+    <div class="fr">
+      <div class="f"><label>Tipo *</label>
+        <select id="vis-tipo" style="width:100%;padding:10px 12px;border:1px solid rgba(12,10,24,.12);border-radius:var(--rs);font-family:'Outfit';outline:none;background:var(--bg);color:var(--ink)">
+          <option value="adulto">Adulto</option>
+          <option value="crianca">Criança</option>
+        </select>
+      </div>
+      <div class="f"><label>Sexo</label>
+        <select id="vis-sexo" style="width:100%;padding:10px 12px;border:1px solid rgba(12,10,24,.12);border-radius:var(--rs);font-family:'Outfit';outline:none;background:var(--bg);color:var(--ink)">
+          <option value="">Não informar</option>
+          <option value="M">Masculino</option>
+          <option value="F">Feminino</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="f"><label>Dia de visita *</label>
+        <select id="vis-dia" style="width:100%;padding:10px 12px;border:1px solid rgba(12,10,24,.12);border-radius:var(--rs);font-family:'Outfit';outline:none;background:var(--bg);color:var(--ink)">
+          <option value="dia1">Dia 1 — 17/jul</option>
+          <option value="dia2">Dia 2 — 18/jul</option>
+          <option value="dia3">Dia 3 — 19/jul</option>
+        </select>
+      </div>
+      <div class="f"><label>Telefone</label><input id="vis-tel" type="tel" placeholder="(85) 9…"></div>
+    </div>
+    <div class="f"><label>Como conheceu o evento?</label><input id="vis-como" placeholder="Ex: amigo, redes sociais…"></div>
+    <div class="f"><label>Observações</label><textarea id="vis-obs" placeholder="Alguma informação adicional?"></textarea></div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-gh" onclick="closeM('m-vis')">Cancelar</button>
+    <button class="btn btn-p" onclick="svVisitante()">Salvar</button>
+  </div>
+</div></div>
+
 <!-- Modal Editar Inscrição -->
 <div class="mw" id="m-edit-ins"><div class="modal" style="max-width:480px">
   <div class="mh">
@@ -1654,8 +1695,8 @@ function canAccess(pg){
   // Fallback por perfil
   const p = CU?.perfil || 'equipe';
   if(p === 'coordenacao') return true;
-  if(p === 'professor') return ['dashboard','criancas','sorteio','credenciamento','programacao','gincana','checklist','avisos','saude'].includes(pg);
-  return ['dashboard','sorteio','credenciamento','programacao','gincana','checklist','avisos'].includes(pg);
+  if(p === 'professor') return ['dashboard','criancas','visitantes','sorteio','credenciamento','programacao','gincana','checklist','avisos','saude'].includes(pg);
+  return ['dashboard','visitantes','sorteio','credenciamento','programacao','gincana','checklist','avisos'].includes(pg);
 }
 
 // ══════════════════════════════════════════════════════
@@ -1664,6 +1705,7 @@ function canAccess(pg){
 const MODULOS_PERM = [
   {id:'dashboard',ico:'📊',nome:'Dashboard',desc:'Visão geral e countdown'},
   {id:'criancas',ico:'👦',nome:'Crianças',desc:'Cadastro e ficha das crianças'},
+  {id:'visitantes',ico:'👥',nome:'Visitantes',desc:'Registro de visitantes'},
   {id:'sorteio',ico:'🎲',nome:'Sorteio',desc:'Distribuição automática nas equipes'},
   {id:'credenciamento',ico:'🎫',nome:'Credenciamento',desc:'Entrada e check-in'},
   {id:'inscricoes',ico:'📝',nome:'Inscrições',desc:'Inscrições e passaportes'},
@@ -1681,8 +1723,8 @@ const MODULOS_PERM = [
   {id:'configuracoes',ico:'⚙️',nome:'Configurações',desc:'Config do sistema'},
 ];
 const PERFIS_PERM = {
-  equipe:      ['dashboard','sorteio','credenciamento','programacao','gincana','checklist','avisos'],
-  professor:   ['dashboard','criancas','sorteio','credenciamento','programacao','gincana','checklist','avisos','saude'],
+  equipe:      ['dashboard','visitantes','sorteio','credenciamento','programacao','gincana','checklist','avisos'],
+  professor:   ['dashboard','criancas','visitantes','sorteio','credenciamento','programacao','gincana','checklist','avisos','saude'],
   coordenacao: MODULOS_PERM.map(m=>m.id),
 };
 let _permTemp = [...(PERFIS_PERM.equipe)];
@@ -1753,12 +1795,8 @@ function tickCD(){
 }
 
 async function loadAll(){
-  const safe = p => Promise.race([
-    p.catch(()=>[]),
-    new Promise(r=>setTimeout(()=>r([]),15000))
-  ]);
-
-  const [cr,tr,eq,pr,av,ge,gm,gp,gr,gpt,ins,cl,pt,esc,cred,frec,fdes] = await Promise.all([
+  function safe(p){ return p.catch(e=>{ console.warn(e); return []; }); }
+  const [cr,tr,eq,pr,av,ge,gm,gp,gr,gpt,ins,cl,pt,esc,cred,frec,fdes,vis] = await Promise.all([
     safe(dbG('criancas_ebf')),
     safe(Promise.resolve({data:[]})),
     safe(dbG('equipe_ebf')),
@@ -1776,12 +1814,11 @@ async function loadAll(){
     safe(SB.from('credenciamento_ebf').select('*').then(r=>r.data||[])),
     safe(SB.from('financeiro_receitas').select('*').order('created_at',{ascending:false}).then(r=>r.data||[])),
     safe(SB.from('financeiro_despesas').select('*').order('created_at',{ascending:false}).then(r=>r.data||[])),
+    safe(dbG('visitantes_ebf')),
   ]);
-
   D={cr:cr||[],tr:[],eq:eq||[],pr:pr||[],av:av||[],
      ge:ge||[],gm:gm||[],gp:gp||[],gr:gr||[],gpt:gpt||[],
-     cl:cl||[],ins:ins||[],pt:pt||[],esc:esc||[],frec:frec||[],fdes:fdes||[],cred:cred||[]};
-
+     cl:cl||[],ins:ins||[],pt:pt||[],esc:esc||[],frec:frec||[],fdes:fdes||[],cred:cred||[],vis:vis||[]};
   const nbI=document.getElementById('nb-i');
   const nbC=document.getElementById('nb-c');
   const nbE=document.getElementById('nb-e');
@@ -1799,6 +1836,7 @@ async function rl(...ks){
     if(k==='eq'){D.eq=await dbG('equipe_ebf');const nbE=document.getElementById('nb-e');if(nbE)nbE.textContent=D.eq.length;}
     if(k==='pr')D.pr=await dbG('presencas_ebf');
     if(k==='cred')D.cred=await dbG('credenciamento_ebf');
+    if(k==='vis')D.vis=await dbG('visitantes_ebf');
     if(k==='av')D.av=await dbG('avisos_ebf');
     if(k==='cl'){const r=await SB.from('checklist_ebf').select('*').order('fase').order('ordem');D.cl=r.data||[];}
     if(k==='pt'){const r=await SB.from('projeto_tarefas').select('*').order('fase').order('ordem');D.pt=r.data||[];}
@@ -1829,6 +1867,7 @@ const META={
   dashboard:['Dashboard','Visão geral do evento'],
   criancas:['Crianças','Cadastro de participantes'],
   turmas:['Turmas','Organização das turmas'],
+  visitantes:['Visitantes','Registro de visitantes do evento'],
   sorteio:['Sorteio de Equipes','Distribuição automática das crianças'],
   credenciamento:['Credenciamento','Recepção do evento'],
   programacao:['Programação','Cronograma dos 3 dias'],
@@ -1876,7 +1915,8 @@ function go(p){
   const fn = {
     dashboard:rDash, criancas:rCriancas,  inscricoes:rInscricoes, configuracoes:rConfig,
     saude:rSaude, estatisticas:rEstatisticas, projeto:rProjeto,
-    escala:rEscala, financeiro:rFinanceiro, sorteio:rSorteio,
+    escala:rEscala, financeiro:rFinanceiro, visitantes:rVisitantes,
+    sorteio:rSorteio,
     credenciamento:rCred,
     programacao:rProg, gincana:rGincana, checklist:rChecklist,
     avisos:rAvisos, equipe:rEquipe, relatorios:rRel
@@ -2369,6 +2409,93 @@ function mkTodos(s){D.cr.filter(c=>c.turma_id===pCfg.turma).forEach(c=>pBuf[c.id
 async function svPres(){if(!pCfg.turma){toast('Selecione uma turma','err');return;}const cr=D.cr.filter(c=>c.turma_id===pCfg.turma);const pr=Object.values(pBuf).filter(v=>v==='presente').length,au=Object.values(pBuf).filter(v=>v==='ausente').length,vi=Object.values(pBuf).filter(v=>v==='visitante').length;try{await dbUps('presencas_ebf',{data:pCfg.dia,turma_id:pCfg.turma,dados:pBuf,presentes:pr,ausentes:au,visitantes:vi,total_criancas:cr.length,visitantes_nomes:document.getElementById('pr-vn')?.value||'',obs:document.getElementById('pr-ob')?.value||''},'data,turma_id');await rl('pr');toast('Chamada salva!','ok');}catch(e){toast('Erro: '+e.message,'err');}}
 
 // ── CREDENCIAMENTO ───────────────────────────
+function rVisitantes(){
+  D.vis=D.vis||[];
+  const total=D.vis.length;
+  const adultos=D.vis.filter(v=>v.tipo==='adulto').length;
+  const criancas=D.vis.filter(v=>v.tipo==='crianca').length;
+  const d1=D.vis.filter(v=>v.dia==='dia1').length;
+  const d2=D.vis.filter(v=>v.dia==='dia2').length;
+  const d3=D.vis.filter(v=>v.dia==='dia3').length;
+  let h='';
+  h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px">';
+  h+='<div class="sc"><div class="l">Total</div><div class="v" style="font-size:1.4rem">'+total+'</div></div>';
+  h+='<div class="sc"><div class="l">Adultos</div><div class="v" style="font-size:1.4rem;color:#1e40af">'+adultos+'</div></div>';
+  h+='<div class="sc"><div class="l">Crianças</div><div class="v" style="font-size:1.4rem;color:#be185d">'+criancas+'</div></div>';
+  h+='<div class="sc"><div class="l">Por dia</div><div style="font-size:.75rem;color:var(--mid);margin-top:3px">D1:'+d1+' · D2:'+d2+' · D3:'+d3+'</div></div>';
+  h+='</div>';
+  h+='<button class="btn btn-p btn-full" style="margin-bottom:12px" onclick="opVisitante()">+ Novo Visitante</button>';
+  if(!D.vis.length){
+    h+='<div class="empty"><div class="e">👥</div><p>Nenhum visitante registrado.</p></div>';
+  } else {
+    [['dia1','Dia 1 — 17/jul'],['dia2','Dia 2 — 18/jul'],['dia3','Dia 3 — 19/jul']].forEach(([d,lb])=>{
+      const lista=D.vis.filter(v=>v.dia===d);
+      if(!lista.length) return;
+      h+='<div class="sec-lbl" style="margin-bottom:6px">'+lb+' ('+lista.length+')</div>';
+      lista.forEach(v=>{
+        const tc=v.tipo==='adulto'?'#1e40af':'#be185d';
+        const bg=v.tipo==='adulto'?'#dbeafe':'#fce7f3';
+        const sx=v.sexo==='M'?'♂':v.sexo==='F'?'♀':'';
+        h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 13px;background:var(--surf);border:1px solid rgba(12,10,24,.07);border-radius:9px;margin-bottom:6px">'
+          +'<div style="width:34px;height:34px;border-radius:9px;background:'+tc+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex-shrink:0">'+(v.nome||'?')[0].toUpperCase()+'</div>'
+          +'<div style="flex:1;min-width:0">'
+          +'<div style="font-weight:600;font-size:.85rem">'+v.nome+(sx?' <span style="color:var(--muted);font-size:.75rem">'+sx+'</span>':'')+'</div>'
+          +'<div style="display:flex;gap:5px;margin-top:3px">'
+          +'<span style="background:'+bg+';color:'+tc+';padding:1px 7px;border-radius:4px;font-size:.65rem;font-weight:700">'+(v.tipo==='adulto'?'Adulto':'Criança')+'</span>'
+          +(v.como_conheceu?'<span style="background:var(--pale);color:var(--mid);padding:1px 7px;border-radius:4px;font-size:.65rem">'+v.como_conheceu+'</span>':'')
+          +'</div></div>'
+          +'<div style="display:flex;gap:5px;flex-shrink:0">'
+          +(v.telefone?'<a href="https://wa.me/55'+v.telefone.replace(/\D/g,'')+'" target="_blank" class="btn btn-g btn-sm">📲</a>':'')
+          +'<button class="btn btn-r btn-sm" data-id="'+v.id+'" onclick="dlVisitante(this.dataset.id)">✕</button>'
+          +'</div></div>';
+      });
+    });
+  }
+  document.getElementById('pg').innerHTML=h;
+}
+
+function opVisitante(){
+  ['vis-nome','vis-tel','vis-como','vis-obs'].forEach(x=>{const el=document.getElementById(x);if(el)el.value='';});
+  document.getElementById('vis-tipo').value='adulto';
+  document.getElementById('vis-sexo').value='';
+  document.getElementById('vis-dia').value='dia1';
+  document.getElementById('vis-id').value='';
+  document.getElementById('m-vis-t').textContent='Novo Visitante';
+  openM('m-vis');
+}
+
+async function svVisitante(){
+  const nome=document.getElementById('vis-nome').value.trim();
+  if(!nome){toast('Informe o nome','err');return;}
+  const o={
+    nome,
+    tipo:document.getElementById('vis-tipo').value,
+    sexo:document.getElementById('vis-sexo').value||null,
+    dia:document.getElementById('vis-dia').value,
+    telefone:document.getElementById('vis-tel').value.trim()||null,
+    como_conheceu:document.getElementById('vis-como').value.trim()||null,
+    observacoes:document.getElementById('vis-obs').value.trim()||null,
+  };
+  try{
+    await dbI('visitantes_ebf',o);
+    await rl('vis');
+    closeM('m-vis');
+    rVisitantes();
+    toast('Visitante registrado!','ok');
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+async function dlVisitante(id){
+  confirm2('Remover visitante','Remover este visitante?',async()=>{
+    try{
+      await dbD('visitantes_ebf',id);
+      await rl('vis');
+      rVisitantes();
+      toast('Removido.','ok');
+    }catch(e){toast('Erro: '+e.message,'err');}
+  });
+}
+
 function rSorteio(){
   D.cr=D.cr||[]; D.ge=D.ge||[]; D.gm=D.gm||[];
 
