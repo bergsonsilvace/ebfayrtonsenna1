@@ -2420,7 +2420,12 @@ function rVisitantes(){
   const presIds=new Set(presencasDia.map(p=>p.visitante_id));
 
   // Todos os visitantes únicos (sem duplicatas)
-  const todosVis=[...new Map(D.vis.map(v=>[v.id,v])).values()];
+  const diaAtual = window._visDia || 'dia1';
+  const ordemDias = ['dia1','dia2','dia3'];
+  const idxAtual = ordemDias.indexOf(diaAtual);
+  // Só mostrar visitantes cadastrados neste dia ou em dias anteriores
+  const todosVis=[...new Map(D.vis.map(v=>[v.id,v])).values()]
+    .filter(v => ordemDias.indexOf(v.dia) <= idxAtual);
   const busca=(window._visBusca||'').toLowerCase().trim();
   const lista=todosVis.filter(v=>!busca||(v.nome||'').toLowerCase().includes(busca));
 
@@ -2482,7 +2487,12 @@ function rVisLista(){
   D.vis=D.vis||[]; D.vpr=D.vpr||[];
   const presencasDia=D.vpr.filter(p=>p.dia===(window._visDia||'dia1'));
   const presIds=new Set(presencasDia.map(p=>p.visitante_id));
-  const todosVis=[...new Map(D.vis.map(v=>[v.id,v])).values()];
+  const diaAtual = window._visDia || 'dia1';
+  const ordemDias = ['dia1','dia2','dia3'];
+  const idxAtual = ordemDias.indexOf(diaAtual);
+  // Só mostrar visitantes cadastrados neste dia ou em dias anteriores
+  const todosVis=[...new Map(D.vis.map(v=>[v.id,v])).values()]
+    .filter(v => ordemDias.indexOf(v.dia) <= idxAtual);
   const busca=(window._visBusca||'').toLowerCase().trim();
   const lista=todosVis.filter(v=>!busca||(v.nome||'').toLowerCase().includes(busca));
 
@@ -3194,8 +3204,16 @@ function gContent(ab){
       } else {
         ps.forEach(p=>{
           const fin=p.status==='finalizada';
-          const tipo=p.tipo_pontuacao||'colocacao';
+          const tipo=p.tipo_pontuacao||'acerto';
           const pts=tipo==='acerto'?p.pontos_1+'pts/acerto':p.pontos_1+'pts / '+p.pontos_2+'pts';
+          // Pontos por equipe para esta prova (somando todas as rodadas)
+          const pontosProva=D.gpt.filter(pt=>pt.motivo===p.nome&&pt.dia===p.dia);
+          const temPontos=pontosProva.length>0;
+          const pontosEq = D.ge.map(eq=>({
+            eq,
+            total: pontosProva.filter(pt=>pt.equipe_id===eq.id).reduce((a,b)=>a+(b.pontos||0),0),
+            acertos: pontosProva.filter(pt=>pt.equipe_id===eq.id).length
+          })).filter(x=>x.total>0);
           h+='<div class="card" style="margin-bottom:7px"><div class="cb">'
            +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">'
            +'<div style="flex:1">'
@@ -3205,11 +3223,16 @@ function gContent(ab){
            +'<span class="badge by">'+tipo+'</span>'
            +'<span class="badge bk">'+pts+'</span>'
            +'</div>'
+           +(temPontos?'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">'
+             +pontosEq.map(x=>'<span style="background:'+x.eq.cor+'20;color:'+x.eq.cor+';padding:2px 9px;border-radius:5px;font-size:.72rem;font-weight:700">'+x.eq.emoji+' '+x.eq.nome+': +'+x.total+'pts ('+x.acertos+' acerto'+(x.acertos>1?'s':'')+')</span>').join('')
+             +'</div>':'')
            +'</div>'
            +'<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0">'
-           +'<span class="badge '+(fin?'bg':'by')+'">'+(fin?'Finalizada':'Pendente')+'</span>'
-           +(!fin?'<button class="btn btn-g btn-sm" data-id="'+p.id+'" data-nm="'+encodeURIComponent(p.nome)+'" onclick="opRes(this.dataset.id,decodeURIComponent(this.dataset.nm))">Resultado</button>':'')
-           +'<button class="btn btn-gh btn-sm" data-id="'+p.id+'" onclick="editarProva(this.dataset.id)">Editar</button>'
+           +'<span class="badge '+(fin?'bg':temPontos?'bg':'by')+'">'+(fin||temPontos?'✓ Lançado':'Pendente')+'</span>'
+           +(!fin&&!temPontos?'<button class="btn btn-g btn-sm" data-id="'+p.id+'" data-nm="'+encodeURIComponent(p.nome)+'" onclick="opRes(this.dataset.id,decodeURIComponent(this.dataset.nm))">Resultado</button>':'')
+           +(fin||temPontos?'<button class="btn btn-gh btn-sm" data-id="'+p.id+'" data-nm="'+encodeURIComponent(p.nome)+'" onclick="opRes(this.dataset.id,decodeURIComponent(this.dataset.nm))">Relançar</button>':'')
+           +'<button class="btn btn-r btn-sm" data-id="'+p.id+'" onclick="dlProva(this.dataset.id)">Excluir</button>'
+           +'</div></div></div></div>';
            +'<button class="btn btn-r btn-sm" data-id="'+p.id+'" onclick="dlProva(this.dataset.id)">Excluir</button>'
            +'</div></div></div></div>';
         });
