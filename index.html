@@ -3347,7 +3347,14 @@ async function svProva(){
 function dlProva(id){confirm2('Excluir','Remover esta prova?',async()=>{await dbD('gincana_provas',id);await rl('g');rGincana('provas');toast('Removida.','ok');});}
 function opRes(pid,pnm){
   const pv = D.gp.find(p=>p.id===pid);
-  const tipo = pv?.tipo_pontuacao || 'colocacao';
+  const tipo = pv?.tipo_pontuacao || 'acerto';
+
+  if(!D.ge||!D.ge.length){
+    toast('Carregando equipes...','ok');
+    rl('ge').then(()=>opRes(pid,pnm));
+    return;
+  }
+
   document.getElementById('m-rs-t').textContent = 'Resultado: '+pnm;
 
   let html = '<input type="hidden" id="rs-pid" value="'+pid+'">';
