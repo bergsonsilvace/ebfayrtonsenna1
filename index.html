@@ -1815,10 +1815,11 @@ async function loadAll(){
     safe(SB.from('financeiro_receitas').select('*').order('created_at',{ascending:false}).then(r=>r.data||[])),
     safe(SB.from('financeiro_despesas').select('*').order('created_at',{ascending:false}).then(r=>r.data||[])),
     safe(dbG('visitantes_ebf')),
+    safe(dbG('visitantes_presenca')),
   ]);
   D={cr:cr||[],tr:[],eq:eq||[],pr:pr||[],av:av||[],
      ge:ge||[],gm:gm||[],gp:gp||[],gr:gr||[],gpt:gpt||[],
-     cl:cl||[],ins:ins||[],pt:pt||[],esc:esc||[],frec:frec||[],fdes:fdes||[],cred:cred||[],vis:vis||[]};
+     cl:cl||[],ins:ins||[],pt:pt||[],esc:esc||[],frec:frec||[],fdes:fdes||[],cred:cred||[],vis:vis||[],vpr:vpr||[]};
   const nbI=document.getElementById('nb-i');
   const nbC=document.getElementById('nb-c');
   const nbE=document.getElementById('nb-e');
@@ -1836,7 +1837,7 @@ async function rl(...ks){
     if(k==='eq'){D.eq=await dbG('equipe_ebf');const nbE=document.getElementById('nb-e');if(nbE)nbE.textContent=D.eq.length;}
     if(k==='pr')D.pr=await dbG('presencas_ebf');
     if(k==='cred')D.cred=await dbG('credenciamento_ebf');
-    if(k==='vis')D.vis=await dbG('visitantes_ebf');
+    if(k==='vis'){ D.vis=await dbG('visitantes_ebf'); D.vpr=await dbG('visitantes_presenca'); }
     if(k==='av')D.av=await dbG('avisos_ebf');
     if(k==='cl'){const r=await SB.from('checklist_ebf').select('*').order('fase').order('ordem');D.cl=r.data||[];}
     if(k==='pt'){const r=await SB.from('projeto_tarefas').select('*').order('fase').order('ordem');D.pt=r.data||[];}
@@ -2410,49 +2411,151 @@ async function svPres(){if(!pCfg.turma){toast('Selecione uma turma','err');retur
 
 // ── CREDENCIAMENTO ───────────────────────────
 function rVisitantes(){
-  D.vis=D.vis||[];
-  const total=D.vis.length;
-  const adultos=D.vis.filter(v=>v.tipo==='adulto').length;
-  const criancas=D.vis.filter(v=>v.tipo==='crianca').length;
-  const d1=D.vis.filter(v=>v.dia==='dia1').length;
-  const d2=D.vis.filter(v=>v.dia==='dia2').length;
-  const d3=D.vis.filter(v=>v.dia==='dia3').length;
+  D.vis=D.vis||[]; D.vpr=D.vpr||[];
+  if(!window._visDia) window._visDia='dia1';
+  if(window._visBusca===undefined) window._visBusca='';
+
+  const DIAS=[['dia1','Dia 1','17/jul'],['dia2','Dia 2','18/jul'],['dia3','Dia 3','19/jul']];
+  const presencasDia=D.vpr.filter(p=>p.dia===window._visDia);
+  const presIds=new Set(presencasDia.map(p=>p.visitante_id));
+
+  // Todos os visitantes únicos (sem duplicatas)
+  const todosVis=[...new Map(D.vis.map(v=>[v.id,v])).values()];
+  const busca=(window._visBusca||'').toLowerCase().trim();
+  const lista=todosVis.filter(v=>!busca||(v.nome||'').toLowerCase().includes(busca));
+
+  const total=todosVis.length;
+  const presentes=todosVis.filter(v=>presIds.has(v.id)).length;
+
   let h='';
-  h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px">';
-  h+='<div class="sc"><div class="l">Total</div><div class="v" style="font-size:1.4rem">'+total+'</div></div>';
-  h+='<div class="sc"><div class="l">Adultos</div><div class="v" style="font-size:1.4rem;color:#1e40af">'+adultos+'</div></div>';
-  h+='<div class="sc"><div class="l">Crianças</div><div class="v" style="font-size:1.4rem;color:#be185d">'+criancas+'</div></div>';
-  h+='<div class="sc"><div class="l">Por dia</div><div style="font-size:.75rem;color:var(--mid);margin-top:3px">D1:'+d1+' · D2:'+d2+' · D3:'+d3+'</div></div>';
+
+  // Cards resumo
+  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px">';
+  h+='<div class="sc"><div class="l">Total</div><div class="v" style="font-size:1.3rem">'+total+'</div></div>';
+  h+='<div class="sc"><div class="l">Presentes</div><div class="v" style="font-size:1.3rem;color:var(--ok)">'+presentes+'</div></div>';
+  h+='<div class="sc"><div class="l">Faltando</div><div class="v" style="font-size:1.3rem;color:var(--warn)">'+(total-presentes)+'</div></div>';
   h+='</div>';
-  h+='<button class="btn btn-p btn-full" style="margin-bottom:12px" onclick="opVisitante()">+ Novo Visitante</button>';
-  if(!D.vis.length){
-    h+='<div class="empty"><div class="e">👥</div><p>Nenhum visitante registrado.</p></div>';
-  } else {
-    [['dia1','Dia 1 — 17/jul'],['dia2','Dia 2 — 18/jul'],['dia3','Dia 3 — 19/jul']].forEach(([d,lb])=>{
-      const lista=D.vis.filter(v=>v.dia===d);
-      if(!lista.length) return;
-      h+='<div class="sec-lbl" style="margin-bottom:6px">'+lb+' ('+lista.length+')</div>';
-      lista.forEach(v=>{
-        const tc=v.tipo==='adulto'?'#1e40af':'#be185d';
-        const bg=v.tipo==='adulto'?'#dbeafe':'#fce7f3';
-        const sx=v.sexo==='M'?'♂':v.sexo==='F'?'♀':'';
-        h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 13px;background:var(--surf);border:1px solid rgba(12,10,24,.07);border-radius:9px;margin-bottom:6px">'
-          +'<div style="width:34px;height:34px;border-radius:9px;background:'+tc+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex-shrink:0">'+(v.nome||'?')[0].toUpperCase()+'</div>'
-          +'<div style="flex:1;min-width:0">'
-          +'<div style="font-weight:600;font-size:.85rem">'+v.nome+(sx?' <span style="color:var(--muted);font-size:.75rem">'+sx+'</span>':'')+'</div>'
-          +'<div style="display:flex;gap:5px;margin-top:3px">'
-          +'<span style="background:'+bg+';color:'+tc+';padding:1px 7px;border-radius:4px;font-size:.65rem;font-weight:700">'+(v.tipo==='adulto'?'Adulto':'Criança')+'</span>'
-          +(v.como_conheceu?'<span style="background:var(--pale);color:var(--mid);padding:1px 7px;border-radius:4px;font-size:.65rem">'+v.como_conheceu+'</span>':'')
-          +'</div></div>'
-          +'<div style="display:flex;gap:5px;flex-shrink:0">'
-          +(v.telefone?'<a href="https://wa.me/55'+v.telefone.replace(/\D/g,'')+'" target="_blank" class="btn btn-g btn-sm">📲</a>':'')
-          +'<button class="btn btn-r btn-sm" data-id="'+v.id+'" onclick="dlVisitante(this.dataset.id)">✕</button>'
-          +'</div></div>';
-      });
-    });
-  }
+
+  // Seletor de dias
+  h+='<div style="display:flex;gap:7px;margin-bottom:12px">';
+  DIAS.forEach(([k,n,dt])=>{
+    const ativo=window._visDia===k;
+    h+='<div onclick="selVisDia(\''+k+'\')" style="flex:1;border:'+(ativo?'2px solid #534AB7':'1px solid rgba(12,10,24,.1)')+';border-radius:10px;padding:8px 6px;text-align:center;cursor:pointer;background:'+(ativo?'#534AB7':'var(--bg)')+'">'
+      +'<div style="font-size:.72rem;font-weight:700;color:'+(ativo?'#EEEDFE':'var(--mid)')+'">'+n+'</div>'
+      +'<div style="font-size:.63rem;color:'+(ativo?'rgba(238,237,254,.6)':'var(--muted)')+'">'+dt+'</div>'
+      +'</div>';
+  });
+  h+='</div>';
+
+  // Botão novo + busca
+  h+='<div style="display:flex;gap:8px;margin-bottom:10px">';
+  h+='<div style="position:relative;flex:1"><i class="ti ti-search" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted)" aria-hidden="true"></i>'
+    +'<input id="vis-busca" type="text" placeholder="Buscar visitante..." value="'+(window._visBusca||'')+'"'
+    +' oninput="visBuscaInput(this.value)"'
+    +' style="width:100%;padding:9px 9px 9px 30px;border:1px solid rgba(12,10,24,.12);border-radius:9px;font-family:\'Outfit\';font-size:.84rem;outline:none;background:var(--bg);color:var(--ink);box-sizing:border-box">'
+    +'</div>';
+  h+='<button class="btn btn-p btn-sm" onclick="opVisitante()" style="flex-shrink:0">+ Novo</button>';
+  h+='</div>';
+
+  // Lista
+  h+='<div id="vis-lista"></div>';
+
   document.getElementById('pg').innerHTML=h;
+  rVisLista();
 }
+
+let _visBuscaTimer=null;
+function visBuscaInput(val){
+  window._visBusca=val;
+  clearTimeout(_visBuscaTimer);
+  _visBuscaTimer=setTimeout(rVisLista, 300);
+}
+
+function selVisDia(dia){
+  window._visDia=dia;
+  rVisitantes();
+}
+
+function rVisLista(){
+  const el=document.getElementById('vis-lista');
+  if(!el) return;
+  D.vis=D.vis||[]; D.vpr=D.vpr||[];
+  const presencasDia=D.vpr.filter(p=>p.dia===(window._visDia||'dia1'));
+  const presIds=new Set(presencasDia.map(p=>p.visitante_id));
+  const todosVis=[...new Map(D.vis.map(v=>[v.id,v])).values()];
+  const busca=(window._visBusca||'').toLowerCase().trim();
+  const lista=todosVis.filter(v=>!busca||(v.nome||'').toLowerCase().includes(busca));
+
+  if(!lista.length){
+    el.innerHTML='<div class="empty"><div class="e">👥</div><p>Nenhum visitante encontrado.</p></div>';
+    return;
+  }
+
+  let h='';
+  lista.forEach(v=>{
+    const presente=presIds.has(v.id);
+    const presObj=presencasDia.find(p=>p.visitante_id===v.id);
+    const hora=presObj?.hora_entrada||'';
+    const tc=v.tipo==='adulto'?'#1e40af':'#be185d';
+    const bg=v.tipo==='adulto'?'#dbeafe':'#fce7f3';
+    const sx=v.sexo==='M'?'♂':v.sexo==='F'?'♀':'';
+    h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 13px;'
+      +'background:'+(presente?'#f0fdf4':'var(--surf)')+';'
+      +'border:1px solid '+(presente?'#86efac':'rgba(12,10,24,.07)')+';'
+      +'border-radius:9px;margin-bottom:6px">'
+      +'<div style="width:34px;height:34px;border-radius:9px;background:'+(presente?'#15803d':tc)+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex-shrink:0">'+(v.nome||'?')[0].toUpperCase()+'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-weight:600;font-size:.85rem">'+v.nome+(sx?' <span style="color:var(--muted);font-size:.75rem">'+sx+'</span>':'')+'</div>'
+      +'<div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap">'
+      +'<span style="background:'+bg+';color:'+tc+';padding:1px 7px;border-radius:4px;font-size:.65rem;font-weight:700">'+(v.tipo==='adulto'?'Adulto':'Criança')+'</span>'
+      +(v.como_conheceu?'<span style="background:var(--pale);color:var(--mid);padding:1px 7px;border-radius:4px;font-size:.65rem">'+v.como_conheceu+'</span>':'')
+      +'</div></div>'
+      +'<div style="flex-shrink:0;text-align:right">';
+    if(presente){
+      h+='<div style="font-size:.72rem;font-weight:600;color:#15803d">✓ '+(hora?hora.substring(0,5):'OK')+'</div>'
+        +'<button data-id="'+v.id+'" onclick="desfazerVisPresenca(this.dataset.id)" style="margin-top:3px;background:none;border:1px solid #86efac;color:#15803d;border-radius:5px;padding:3px 8px;font-size:.62rem;cursor:pointer;font-family:\'Outfit\'">Desfazer</button>';
+    } else {
+      h+='<button data-id="'+v.id+'" onclick="fazerVisCheckin(this.dataset.id)" style="background:#534AB7;border:none;color:#EEEDFE;border-radius:7px;padding:7px 11px;font-size:.75rem;font-weight:600;cursor:pointer;font-family:\'Outfit\'">Check-in</button>';
+    }
+    h+='</div></div>';
+  });
+  el.innerHTML=h;
+}
+
+async function fazerVisCheckin(vid){
+  const dia=window._visDia||'dia1';
+  D.vpr=D.vpr||[];
+  if(D.vpr.find(p=>p.visitante_id===vid&&p.dia===dia)){
+    toast('Já registrado!','err'); rVisLista(); return;
+  }
+  const vis=D.vis.find(x=>x.id===vid);
+  const hora=new Date().toTimeString().substring(0,5);
+  try{
+    const reg=await dbI('visitantes_presenca',{visitante_id:vid,dia,hora_entrada:hora});
+    if(reg) D.vpr.push(reg);
+    rVisLista();
+    toast('✓ '+(vis?.nome||'Visitante')+' — check-in '+hora,'ok');
+  }catch(e){
+    if(e.message&&e.message.includes('duplicate')){
+      await rl('vis'); rVisLista(); toast('Já registrado!','err');
+    } else { toast('Erro: '+e.message,'err'); }
+  }
+}
+
+async function desfazerVisPresenca(vid){
+  const dia=window._visDia||'dia1';
+  const p=D.vpr.find(x=>x.visitante_id===vid&&x.dia===dia);
+  if(!p){ toast('Nenhuma presença encontrada','err'); return; }
+  confirm2('Desfazer check-in','Remover a presença deste visitante?',async()=>{
+    try{
+      await dbD('visitantes_presenca',p.id);
+      D.vpr=D.vpr.filter(x=>x.id!==p.id);
+      rVisLista();
+      toast('Presença removida.','ok');
+    }catch(e){ toast('Erro: '+e.message,'err'); }
+  });
+}
+
 
 function opVisitante(){
   ['vis-nome','vis-tel','vis-como','vis-obs'].forEach(x=>{const el=document.getElementById(x);if(el)el.value='';});
