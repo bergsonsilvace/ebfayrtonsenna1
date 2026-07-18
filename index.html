@@ -1796,7 +1796,7 @@ function tickCD(){
 
 async function loadAll(){
   function safe(p){ return p.catch(e=>{ console.warn(e); return []; }); }
-  const [cr,tr,eq,pr,av,ge,gm,gp,gr,gpt,ins,cl,pt,esc,cred,frec,fdes,vis] = await Promise.all([
+  const [cr,tr,eq,pr,av,ge,gm,gp,gr,gpt,ins,cl,pt,esc,cred,frec,fdes,vis,vpr] = await Promise.all([
     safe(dbG('criancas_ebf')),
     safe(Promise.resolve({data:[]})),
     safe(dbG('equipe_ebf')),
