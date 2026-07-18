@@ -2817,78 +2817,102 @@ function rCred(){
   html += '<div style="position:relative;margin-bottom:12px">'
     +'<i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--muted)" aria-hidden="true"></i>'
     +'<input id="cred-busca" type="text" placeholder="Buscar criança por nome..." value="'+((window._credBusca)||'')+'"'
-    +' oninput="window._credBusca=this.value;rCred()"'
+    +' oninput="credBuscaInput(this.value)"'
     +' style="width:100%;padding:10px 10px 10px 34px;border:1px solid rgba(12,10,24,.12);border-radius:9px;font-family:\'Outfit\';font-size:.86rem;outline:none;background:var(--bg);color:var(--ink);box-sizing:border-box">'
     +'</div>';
 
   // ── Lista de crianças ────────────────────────
-  if(!lista.length){
-    html += '<div class="empty"><div class="e">🔍</div><p>Nenhuma criança encontrada.</p></div>';
-  } else {
-    lista.forEach(cr => {
-      const presente = presIds.has(cr.id);
-      const presObj  = presencasDia.find(p=>p.crianca_id===cr.id);
-      const horario  = presObj?.hora_entrada || presObj?.created_at?.substring(11,16) || '';
-      const turma    = getNomeTurma(cr.turma_id);
-      const corT     = getCorTurma(cr.turma_id);
-      const equipe   = getEquipe(cr.id);
-      const alertas  = alertaSaude(cr);
-      const ini      = (cr.nome||'?').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase();
-
-      html += '<div style="display:flex;align-items:flex-start;gap:10px;padding:11px 13px;margin-bottom:7px;'
-        +'background:'+(presente?'#f0fdf4':'var(--surf)')+';'
-        +'border:1px solid '+(presente?'#86efac':'rgba(12,10,24,.08)')+';'
-        +'border-radius:10px;transition:.15s">';
-
-      // Avatar
-      html += '<div style="width:36px;height:36px;border-radius:10px;background:'+(presente?'#15803d':'#534AB7')+';'
-        +'display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;'
-        +'color:'+(presente?'#f0fdf4':'#EEEDFE')+';flex-shrink:0">'+ini+'</div>';
-
-      // Info
-      html += '<div style="flex:1;min-width:0">';
-      html += '<div style="font-weight:600;font-size:.85rem;color:var(--ink)">'+cr.nome+'</div>';
-
-      // Turma + equipe
-      html += '<div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap">';
-      if(cr.turma_id){
-        html += '<span style="background:'+corT+'20;color:'+corT+';padding:1px 7px;border-radius:4px;font-size:.63rem;font-weight:700">'+turma+'</span>';
-      }
-      if(equipe){
-        html += '<span style="background:'+equipe.cor+'20;color:'+equipe.cor+';padding:1px 7px;border-radius:4px;font-size:.63rem;font-weight:600">'+equipe.emoji+' '+equipe.nome+'</span>';
-      }
-      html += '</div>';
-
-      // Alertas de saúde
-      if(alertas.length){
-        html += '<div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap">';
-        alertas.forEach(a => {
-          html += '<span style="display:inline-flex;align-items:center;gap:3px;background:'+a.bg
-            +';color:'+a.tc+';padding:2px 7px;border-radius:4px;font-size:.62rem;font-weight:600">'
-            +'<i class="ti '+a.ico+'" style="font-size:11px" aria-hidden="true"></i> '+a.txt+'</span>';
-        });
-        html += '</div>';
-      }
-
-      html += '</div>';
-
-      // Botão ou horário
-      html += '<div style="flex-shrink:0;text-align:right">';
-      if(presente){
-        html += '<div style="display:flex;align-items:center;gap:4px;color:#15803d;font-size:.72rem;font-weight:600">'
-          +'<i class="ti ti-check" style="font-size:15px" aria-hidden="true"></i>'+(horario||'')+'</div>';
-        html += '<button onclick="desfazerCheckin(\''+cr.id+'\')" style="margin-top:4px;background:none;border:1px solid #86efac;color:#15803d;border-radius:5px;padding:3px 8px;font-size:.62rem;cursor:pointer;font-family:\'Outfit\'">Desfazer</button>';
-      } else {
-        html += '<button onclick="fazerCheckin(\''+cr.id+'\')" style="background:#534AB7;border:none;color:#EEEDFE;border-radius:7px;padding:7px 11px;font-size:.75rem;font-weight:600;cursor:pointer;font-family:\'Outfit\'">Check-in</button>';
-      }
-      html += '</div>';
-
-      html += '</div>';
-    });
-  }
+  html += '<div id="cred-lista"></div>';
 
   document.getElementById('pg').innerHTML = (window._offlineBanner||'') + html;
+
+  // Renderizar lista separadamente para não perder foco no input
+  rCredLista();
+
+  // Manter foco no input se estava buscando
+  if(window._credBusca){
+    const inp = document.getElementById('cred-busca');
+    if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  }
 }
+
+function rCredLista(){
+  const presencasDia = (D.cred||[]).filter(p => p.dia === (window._credDia||'dia1'));
+  const presIds = new Set(presencasDia.map(p => p.crianca_id));
+  const busca = (window._credBusca||'').toLowerCase().trim();
+  const lista = (D.cr||[]).filter(cr => !busca || (cr.nome||'').toLowerCase().includes(busca));
+
+  function getNomeTurma(id){ return (D.tr||[]).find(t=>t.id===id)?.nome||'—'; }
+  function getCorTurma(id){ return (D.tr||[]).find(t=>t.id===id)?.cor||'#534AB7'; }
+  function getEquipe(cid){
+    const m=(D.gm||[]).find(x=>x.crianca_id===cid);
+    if(!m) return null;
+    return (D.ge||[]).find(e=>e.id===m.equipe_id);
+  }
+  function alertaSaude(cr){
+    const itens=[];
+    if(cr.tem_alergia==='sim') itens.push({ico:'ti-alert-triangle',txt:cr.alergias||'Alergia',bg:'#FCEBEB',tc:'#791F1F'});
+    if(cr.tem_restricao==='sim') itens.push({ico:'ti-medical-cross',txt:cr.restricoes||'Restrição',bg:'#FAEEDA',tc:'#633806'});
+    if(cr.medicamentos) itens.push({ico:'ti-pill',txt:'Medicamento',bg:'#E6F1FB',tc:'#0C447C'});
+    return itens;
+  }
+
+  const el = document.getElementById('cred-lista');
+  if(!el) return;
+
+  if(!lista.length){
+    el.innerHTML='<div class="empty"><div class="e">🔍</div><p>Nenhuma criança encontrada.</p></div>';
+    return;
+  }
+
+  let h='';
+  lista.forEach(cr=>{
+    const presente=presIds.has(cr.id);
+    const presObj=presencasDia.find(p=>p.crianca_id===cr.id);
+    const horario=presObj?.hora_entrada||presObj?.created_at?.substring(11,16)||'';
+    const turma=getNomeTurma(cr.turma_id);
+    const corT=getCorTurma(cr.turma_id);
+    const equipe=getEquipe(cr.id);
+    const alertas=alertaSaude(cr);
+    const ini=(cr.nome||'?').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase();
+    h+='<div style="display:flex;align-items:flex-start;gap:10px;padding:11px 13px;margin-bottom:7px;'
+      +'background:'+(presente?'#f0fdf4':'var(--surf)')+';'
+      +'border:1px solid '+(presente?'#86efac':'rgba(12,10,24,.08)')+';'
+      +'border-radius:10px">';
+    h+='<div style="width:36px;height:36px;border-radius:10px;background:'+(presente?'#15803d':'#534AB7')+';'
+      +'display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;'
+      +'color:'+(presente?'#f0fdf4':'#EEEDFE')+';flex-shrink:0">'+ini+'</div>';
+    h+='<div style="flex:1;min-width:0">';
+    h+='<div style="font-weight:600;font-size:.85rem;color:var(--ink)">'+cr.nome+'</div>';
+    h+='<div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap">';
+    if(cr.turma_id) h+='<span style="background:'+corT+'20;color:'+corT+';padding:1px 7px;border-radius:4px;font-size:.63rem;font-weight:700">'+turma+'</span>';
+    if(equipe) h+='<span style="background:'+equipe.cor+'20;color:'+equipe.cor+';padding:1px 7px;border-radius:4px;font-size:.63rem;font-weight:600">'+equipe.emoji+' '+equipe.nome+'</span>';
+    h+='</div>';
+    if(alertas.length){
+      h+='<div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap">';
+      alertas.forEach(a=>{h+='<span style="display:inline-flex;align-items:center;gap:3px;background:'+a.bg+';color:'+a.tc+';padding:2px 7px;border-radius:4px;font-size:.62rem;font-weight:600"><i class="ti '+a.ico+'" style="font-size:11px" aria-hidden="true"></i> '+a.txt+'</span>';});
+      h+='</div>';
+    }
+    h+='</div>';
+    h+='<div style="flex-shrink:0;text-align:right">';
+    if(presente){
+      h+='<div style="display:flex;align-items:center;gap:4px;color:#15803d;font-size:.72rem;font-weight:600"><i class="ti ti-check" style="font-size:15px" aria-hidden="true"></i>'+(horario||'')+'</div>';
+      h+='<button data-id="'+cr.id+'" onclick="desfazerCheckin(this.dataset.id)" style="margin-top:4px;background:none;border:1px solid #86efac;color:#15803d;border-radius:5px;padding:3px 8px;font-size:.62rem;cursor:pointer;font-family:\'Outfit\'">Desfazer</button>';
+    } else {
+      h+='<button data-id="'+cr.id+'" onclick="fazerCheckin(this.dataset.id)" style="background:#534AB7;border:none;color:#EEEDFE;border-radius:7px;padding:7px 11px;font-size:.75rem;font-weight:600;cursor:pointer;font-family:\'Outfit\'">Check-in</button>';
+    }
+    h+='</div></div>';
+  });
+  el.innerHTML = h;
+}
+
+let _credBuscaTimer = null;
+function credBuscaInput(val){
+  window._credBusca = val;
+  clearTimeout(_credBuscaTimer);
+  _credBuscaTimer = setTimeout(rCredLista, 400);
+}
+
 
 function selCredDia(dia){
   window._credDia = dia;
@@ -2899,22 +2923,27 @@ async function fazerCheckin(criancaId){
   const dia = window._credDia || 'dia1';
   D.cred = D.cred||[];
   if(D.cred.find(p=>p.crianca_id===criancaId&&p.dia===dia)){
-    toast('Criança já registrada neste dia','err'); return;
+    toast('Check-in já feito!','err'); rCred(); return;
   }
   const cr = D.cr.find(x=>x.id===criancaId);
   const hora = new Date().toTimeString().substring(0,5);
   try{
-    await dbI('credenciamento_ebf',{
+    const reg = await dbI('credenciamento_ebf',{
       crianca_id:   criancaId,
       crianca_nome: cr?.nome||null,
       dia,
       hora_entrada: hora,
     });
-    await rl('cred');
+    if(reg) D.cred.push(reg);
     rCred();
     toast('✓ '+(cr?.nome||'Criança')+' — check-in '+hora,'ok');
-  }catch(e){ toast('Erro: '+e.message,'err'); }
+  }catch(e){
+    if(e.message&&e.message.includes('duplicate')){
+      await rl('cred'); rCred(); toast('Check-in já registrado!','err');
+    } else { toast('Erro: '+e.message,'err'); }
+  }
 }
+
 
 async function desfazerCheckin(criancaId){
   const dia = window._credDia || 'dia1';
