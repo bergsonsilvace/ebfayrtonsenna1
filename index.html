@@ -2509,6 +2509,12 @@ function rVisLista(){
     const tc=v.tipo==='adulto'?'#1e40af':'#be185d';
     const bg=v.tipo==='adulto'?'#dbeafe':'#fce7f3';
     const sx=v.sexo==='M'?'♂':v.sexo==='F'?'♀':'';
+    // Dias que compareceu
+    const diasComp=['dia1','dia2','dia3'].map(d=>{
+      const pres=D.vpr.find(p=>p.visitante_id===v.id&&p.dia===d);
+      return pres?'<span style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-size:.62rem;font-weight:700">✓ '+(d==='dia1'?'D1':d==='dia2'?'D2':'D3')+'</span>'
+                 :'<span style="background:var(--pale);color:var(--muted);padding:1px 6px;border-radius:4px;font-size:.62rem">— '+(d==='dia1'?'D1':d==='dia2'?'D2':'D3')+'</span>';
+    }).join('');
     h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 13px;'
       +'background:'+(presente?'#f0fdf4':'var(--surf)')+';'
       +'border:1px solid '+(presente?'#86efac':'rgba(12,10,24,.07)')+';'
@@ -2519,6 +2525,8 @@ function rVisLista(){
       +'<div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap">'
       +'<span style="background:'+bg+';color:'+tc+';padding:1px 7px;border-radius:4px;font-size:.65rem;font-weight:700">'+(v.tipo==='adulto'?'Adulto':'Criança')+'</span>'
       +(v.como_conheceu?'<span style="background:var(--pale);color:var(--mid);padding:1px 7px;border-radius:4px;font-size:.65rem">'+v.como_conheceu+'</span>':'')
+      +'</div>'
+      +'<div style="display:flex;gap:3px;margin-top:4px">'+diasComp+'</div>'
       +'</div></div>'
       +'<div style="flex-shrink:0;text-align:right">';
     if(presente){
@@ -3001,6 +3009,15 @@ function rCredLista(){
     if(cr.turma_id) h+='<span style="background:'+corT+'20;color:'+corT+';padding:1px 7px;border-radius:4px;font-size:.63rem;font-weight:700">'+turma+'</span>';
     if(equipe) h+='<span style="background:'+equipe.cor+'20;color:'+equipe.cor+';padding:1px 7px;border-radius:4px;font-size:.63rem;font-weight:600">'+equipe.emoji+' '+equipe.nome+'</span>';
     h+='</div>';
+    // Badges de dias
+    const diasCr=['dia1','dia2','dia3'].map(d=>{
+      const pres=(D.cred||[]).find(p=>p.crianca_id===cr.id&&p.dia===d);
+      const lb=d==='dia1'?'D1':d==='dia2'?'D2':'D3';
+      return pres?'<span style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-size:.62rem;font-weight:700">✓ '+lb+'</span>'
+                 :'<span style="background:var(--pale);color:var(--muted);padding:1px 6px;border-radius:4px;font-size:.62rem">— '+lb+'</span>';
+    }).join('');
+    h+='<div style="display:flex;gap:3px;margin-top:4px">'+diasCr+'</div>';
+    h+='</div>';
     if(alertas.length){
       h+='<div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap">';
       alertas.forEach(a=>{h+='<span style="display:inline-flex;align-items:center;gap:3px;background:'+a.bg+';color:'+a.tc+';padding:2px 7px;border-radius:4px;font-size:.62rem;font-weight:600"><i class="ti '+a.ico+'" style="font-size:11px" aria-hidden="true"></i> '+a.txt+'</span>';});
@@ -3286,8 +3303,10 @@ async function svPontos(){
   if(!pts||!mot){ toast('Preencha pontos e motivo','err'); return; }
   try{
     await dbI('gincana_pontuacoes',{equipe_id:eid, pontos:pts, motivo:mot, dia});
-    const eq=D.ge.find(e=>e.id===eid);
-    await dbU('gincana_equipes',eid,{pontos:(eq?.pontos||0)+pts});
+    // Recalcular total do zero para evitar descasamento
+    const {data:todos} = await SB.from('gincana_pontuacoes').select('pontos').eq('equipe_id',eid);
+    const totalReal = (todos||[]).reduce((a,x)=>a+(x.pontos||0),0);
+    await dbU('gincana_equipes',eid,{pontos:totalReal});
     await rl('g');
     closeM('m-pt-g');
     rGincana('ranking');
